@@ -10,18 +10,19 @@ import os
 # use_yoffset 控制是否对该曲线做 y-offset
 # use_normalize 控制是否对该曲线做归一化
 files = [
-    #{"filename": "1", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None, "use_yoffset": True,},
-    #{"filename": "2", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None, "use_yoffset": True,},
+    {"filename": "1.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
+    {"filename": "2.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
+    {"filename": "3.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
 ]
 
 # 图表参数
 title = "XRD patterns"
 xlabel = r"2$\theta$(deg.)"
 ylabel = r"$\rm{Intensity\;(counts)}$"
-labels = [r"$perovskite\;\rm{ABO_3}$", r"$perovskite\;\rm{A_2B_2O_6}$"]
+labels = [r"$perovskite\;\rm{ABO_3}$", r"$perovskite\;\rm{A_2B_2O_6}$", r"$perovskite\;\rm{A_2B_2O_6}$"]
 outfile = "xrd.pdf"
 figsize = (8,6)
-# 字体设置
+# 绘图设置
 font_title = {'family': 'sans-serif', 'weight': 'normal', 'size': 20}
 font_label = {'family': 'sans-serif', 'weight': 'normal', 'size': 20}
 tick_config = {
@@ -33,12 +34,23 @@ legend_fontsize = 12
 point_size = 5
 line_width = 2
 default_linestyle = '-'
-
+show_name = True
 # y-offset 参数
-offset_col = 1
-offset_coef = 1.05
+use_yoffset = True
 use_normalize = True
-
+offset_coef = 1.05
+# 使用 LaTeX 渲染并控制字体
+plt.rcParams['font.family'] = 'Arial'
+plt.rcParams['font.sans-serif'] = 'Arial'
+plt.rcParams['mathtext.fontset'] = 'custom'
+plt.rcParams['mathtext.rm'] = 'Arial'
+plt.rcParams['mathtext.it'] = 'Arial:italic'
+plt.rcParams['mathtext.bf'] = 'Arial:bold'
+# 颜色池（自动分配） https://matplotlib.org/stable/users/explain/colors/colormaps.html
+# auto_colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'cyan', 'magenta']
+cmap = plt.get_cmap('tab10', 10)
+auto_colors = [cmap(i) for i in range(cmap.N)]
+auto_markers = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'x', '+']
 
 def auto_scan_files(extensions=['.xy', '.csv', '.txt', '.dat', '']):
     """
@@ -67,7 +79,6 @@ def auto_scan_files(extensions=['.xy', '.csv', '.txt', '.dat', '']):
                 "color": None,
                 "marker": None,
                 "linestyle": None,
-                "use_yoffset": True,
             })
     
     if not file_list:
@@ -86,35 +97,59 @@ if not files:
 
 # ===========================================
 
-# 使用 LaTeX 渲染并控制字体
-plt.rcParams['font.family'] = 'Arial'
-plt.rcParams['font.sans-serif'] = 'Arial'
-
-plt.rcParams['mathtext.fontset'] = 'custom'
-plt.rcParams['mathtext.rm'] = 'Arial'
-plt.rcParams['mathtext.it'] = 'Arial:italic'
-plt.rcParams['mathtext.bf'] = 'Arial:bold'
-
-# 颜色池（自动分配）
-auto_colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'cyan', 'magenta']
-auto_markers = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'x', '+']
-
-def detect_delimiter(filename):
+def read_data(filename, comment_char="#", n_lines=10):
     if not os.path.exists(filename):
         raise FileNotFoundError(f"文件不存在: {filename}")
-    with open(filename, 'r', newline='') as f:
-        sample = f.read(1024)
-        sniffer = csv.Sniffer()
-        try:
-            dialect = sniffer.sniff(sample)
-            return dialect.delimiter
-        except csv.Error:
-            return ','
 
-def read_data(filename):
-    delimiter = detect_delimiter(filename)
-    data = pd.read_csv(filename, delimiter=delimiter, comment='#', engine='python', header=None)
-    return data
+    # 预读几行
+    sample_lines = []
+    with open(filename, 'r', newline='') as f:
+        for i in range(n_lines):
+            line = f.readline()
+            if not line:  # 文件提前结束
+                break
+            sample_lines.append(line.rstrip("\r\n"))
+
+    sample = "\n".join(sample_lines)
+
+    # 统计注释行
+    comment_lines = [line for line in sample_lines if line.strip().startswith(comment_char)]
+    n_comment_lines = len(comment_lines)
+
+    # 自动检测分隔符
+    sniffer = csv.Sniffer()
+    try:
+        dialect = sniffer.sniff(sample)
+        delimiter = dialect.delimiter
+        use_whitespace = False
+    except csv.Error:
+        delimiter = r"\s+"   # 回退到任意空白
+        use_whitespace = True
+
+    # 判断首个非注释行是否为表头
+    header_line_index = n_comment_lines
+    header_tokens = sample_lines[header_line_index].split(delimiter if not use_whitespace else None)
+
+    def is_number(x):
+        try:
+            float(x)
+            return True
+        except ValueError:
+            return False
+
+    if all(not is_number(tok) for tok in header_tokens):  
+        header_option = 0  # 第一行是表头
+    else:
+        header_option = None  # 没有表头
+
+    # 用 pandas 读数据
+    return pd.read_csv(
+        filename,
+        sep=delimiter if not use_whitespace else delimiter,
+        comment=comment_char,
+        engine="python",
+        header=header_option
+    )
 
 plt.figure(figsize=figsize)
 ax = plt.gca()
@@ -136,16 +171,10 @@ for idx, f in enumerate(files):
 
     # === 归一化操作（在偏移前） ===
     if use_normalize == True:
-        y_min = y.min()
-        y_max = y.max()
-        if y_max - y_min > 0:
-            y = (y - y_min) / (y_max - y_min)
-        else:
-            y = np.zeros_like(y)
-            print(f"警告: 文件 {f['filename']} Y 值无变化，归一化后为0")
+        y = y / abs(y.max())
 
     # === y-offset 堆积（在归一化后） ===
-    if f.get("use_yoffset", False):
+    if use_yoffset == True:
         # 首次进入时计算偏移量，或者重新计算
         offset_value = y.max() * offset_coef    
         y = y + yoffset_counter * offset_value
@@ -170,13 +199,26 @@ for idx, f in enumerate(files):
         print(f"未识别的绘图类型: {f['type']}, 使用散点图绘制")
         ax.scatter(x, y, s=point_size, c=color, label=label)
 
+    if show_name == True:
+    # 末点坐标（对应绘图坐标系）
+        y0 = (max(y) + min(y)) * 0.5 
+        x0 = (max(x) - min(x)) * 0.8
+        plt.annotate(label,
+                    xy=(x0, y0),
+                    xytext=(x0, y0),
+                    textcoords='data',
+                    fontsize=16,
+                    color=color,
+                    ha='left', va='center',)
+        
 ax.set_title(title, fontdict=font_title)
 ax.set_xlabel(xlabel, fontdict=font_label)
 ax.set_ylabel(ylabel, fontdict=font_label)
 ax.tick_params(**tick_config['major'])
 ax.tick_params(**tick_config['minor'])
 #ax.minorticks_on()
-ax.legend(loc=legend_loc, fontsize=legend_fontsize)
+if show_name != True:
+    ax.legend(loc=legend_loc, fontsize=legend_fontsize)
 ax.grid(True, linestyle="--", alpha=0.6)
 #plt.show()
 plt.savefig(outfile)
