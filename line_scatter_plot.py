@@ -10,14 +10,14 @@ import os
 # use_yoffset 控制是否对该曲线做 y-offset
 # use_normalize 控制是否对该曲线做归一化
 files = [
-    # {"filename": "4.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
+    # {"filename": "1.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
     # {"filename": "2.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
     # {"filename": "3.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
 ]
 
 # 图表参数
 title = "XRD patterns"
-xlabel = r"2$\theta$(deg.)"
+xlabel = r"2$\theta$ (deg.)"
 ylabel = r"$\rm{Intensity\;(counts)}$"
 labels = [r"$perovskite\;\rm{ABO_3}$", r"$perovskite\;\rm{A_2B_2O_6}$", r"$perovskite\;\rm{A_2B_2O_6}$"]
 outfile = "xrd.pdf"
@@ -247,4 +247,4 @@ if show_name != True:
     ax.legend(loc=legend_loc, fontsize=legend_fontsize)
 ax.grid(True, linestyle="--", alpha=0.6)
 #plt.show()
-plt.savefig(outfile)
+plt.savefig(outfile,dpi=300)
