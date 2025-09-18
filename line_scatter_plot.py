@@ -10,9 +10,9 @@ import os
 # use_yoffset 控制是否对该曲线做 y-offset
 # use_normalize 控制是否对该曲线做归一化
 files = [
-    {"filename": "1.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
-    {"filename": "2.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
-    {"filename": "3.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
+    # {"filename": "4.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
+    # {"filename": "2.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
+    # {"filename": "3.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
 ]
 
 # 图表参数
@@ -74,7 +74,7 @@ def auto_scan_files(extensions=['.xy', '.csv', '.txt', '.dat', '']):
                 "filename": filename,
                 "col_x": 0,
                 "col_y": 1,
-                "label": os.path.splitext(filename)[0],
+                "label": None,
                 "type": "line",
                 "color": None,
                 "marker": None,
@@ -95,18 +95,22 @@ if not files:
     if not files:
         exit() # 如果没有找到文件，退出脚本
 
-# ===========================================
-
 def read_data(filename, comment_char="#", n_lines=10):
+    """
+    自动读取数据文件，支持：
+    - 注释行自动跳过
+    - 表头自动识别
+    - 自动识别常见分隔符（空格、多空格、制表符、逗号等）
+    """
     if not os.path.exists(filename):
         raise FileNotFoundError(f"文件不存在: {filename}")
 
-    # 预读几行
+    # 预读前几行，兼容 \r\n 和 \n
     sample_lines = []
     with open(filename, 'r', newline='') as f:
-        for i in range(n_lines):
+        for _ in range(n_lines):
             line = f.readline()
-            if not line:  # 文件提前结束
+            if not line:
                 break
             sample_lines.append(line.rstrip("\r\n"))
 
@@ -116,40 +120,62 @@ def read_data(filename, comment_char="#", n_lines=10):
     comment_lines = [line for line in sample_lines if line.strip().startswith(comment_char)]
     n_comment_lines = len(comment_lines)
 
-    # 自动检测分隔符
-    sniffer = csv.Sniffer()
+    # 尝试使用 Sniffer 猜测分隔符
+    use_whitespace = False
     try:
-        dialect = sniffer.sniff(sample)
+        dialect = csv.Sniffer().sniff(sample)
         delimiter = dialect.delimiter
-        use_whitespace = False
+        # 如果 Sniffer 猜出单空格，但行中有多个连续空格，改用正则匹配空白
+        if delimiter == ' ' and any('  ' in line for line in sample_lines):
+            delimiter = r'\s+'
+            use_whitespace = True
     except csv.Error:
-        delimiter = r"\s+"   # 回退到任意空白
+        # Sniffer 失败 → 回退到任意空白
+        delimiter = r'\s+'
         use_whitespace = True
 
     # 判断首个非注释行是否为表头
     header_line_index = n_comment_lines
-    header_tokens = sample_lines[header_line_index].split(delimiter if not use_whitespace else None)
-
-    def is_number(x):
-        try:
-            float(x)
-            return True
-        except ValueError:
-            return False
-
-    if all(not is_number(tok) for tok in header_tokens):  
-        header_option = 0  # 第一行是表头
+    if header_line_index >= len(sample_lines):
+        header_option = None
     else:
-        header_option = None  # 没有表头
+        line_to_check = sample_lines[header_line_index]
+        if use_whitespace:
+            header_tokens = line_to_check.split()
+        else:
+            header_tokens = line_to_check.split(delimiter)
 
-    # 用 pandas 读数据
-    return pd.read_csv(
-        filename,
-        sep=delimiter if not use_whitespace else delimiter,
-        comment=comment_char,
-        engine="python",
-        header=header_option
-    )
+        def is_number(x):
+            try:
+                float(x)
+                return True
+            except ValueError:
+                return False
+
+        if all(not is_number(tok) for tok in header_tokens):
+            header_option = 0
+        else:
+            header_option = None
+
+    # 读取数据
+    if use_whitespace:
+        df = pd.read_csv(
+            filename,
+            sep=r'\s+',
+            engine='python',
+            comment=comment_char,
+            header=header_option
+        )
+    else:
+        df = pd.read_csv(
+            filename,
+            sep=delimiter,
+            engine='python',
+            comment=comment_char,
+            header=header_option
+        )
+
+    return df
 
 plt.figure(figsize=figsize)
 ax = plt.gca()
@@ -201,15 +227,15 @@ for idx, f in enumerate(files):
 
     if show_name == True:
     # 末点坐标（对应绘图坐标系）
-        y0 = (max(y) + min(y)) * 0.5 
-        x0 = (max(x) - min(x)) * 0.8
+        y0 = (max(y) + min(y)) * 0.55 
+        x0 = max(x)
         plt.annotate(label,
                     xy=(x0, y0),
                     xytext=(x0, y0),
                     textcoords='data',
-                    fontsize=16,
+                    fontsize=14,
                     color=color,
-                    ha='left', va='center',)
+                    ha='right', va='center',)
         
 ax.set_title(title, fontdict=font_title)
 ax.set_xlabel(xlabel, fontdict=font_label)
