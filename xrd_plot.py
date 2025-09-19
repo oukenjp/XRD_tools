@@ -17,11 +17,9 @@ files = [
 
 # 图表参数
 title = "XRD patterns"
-xlabel = r"2$\theta$ (deg.)"
-ylabel = r"$\rm{Intensity\;(counts)}$"
-labels = [r"$perovskite\;\rm{ABO_3}$", r"$perovskite\;\rm{A_2B_2O_6}$", r"$perovskite\;\rm{A_2B_2O_6}$"]
-outfile = "xrd.pdf"
+outfile = "xrd2.svg"
 figsize = (8,6)
+labels = [r"$perovskite\;\rm{ABO_3}$", r"$perovskite\;\rm{A_2B_2O_6}$", r"$perovskite\;\rm{A_2B_2O_6}$"]    
 # 绘图设置
 font_title = {'family': 'sans-serif', 'weight': 'normal', 'size': 20}
 font_label = {'family': 'sans-serif', 'weight': 'normal', 'size': 20}
@@ -38,7 +36,7 @@ show_name = True
 # y-offset 参数
 use_yoffset = True
 use_normalize = True
-offset_coef = 1.05
+offset_coef = 1.02
 # 使用 LaTeX 渲染并控制字体
 plt.rcParams['font.family'] = 'Arial'
 plt.rcParams['font.sans-serif'] = 'Arial'
@@ -177,9 +175,9 @@ def read_data(filename, comment_char="#", n_lines=10):
 
     return df
 
-plt.figure(figsize=figsize)
-ax = plt.gca()
-
+fig = plt.figure(figsize=figsize)
+#ax = plt.gca()
+ax = fig.add_axes([0.11, 0.11, 0.78, 0.78]) 
 yoffset_counter = 0
 for idx, f in enumerate(files):
     try:
@@ -237,14 +235,21 @@ for idx, f in enumerate(files):
                     color=color,
                     ha='right', va='center',)
         
+ax.tick_params(**tick_config['major'])
+ax.tick_params(**tick_config['minor'])
+xlabel = r"2$\theta$ (deg.)"
+if use_normalize == True:
+    ylabel = r"$\rm{Intensity\;(a.u.)}$"
+    ax.tick_params(axis='y', which='both', left=False, right=False, labelleft=False)
+else:
+    ylabel = r"$\rm{Intensity\;(counts)}$"
 ax.set_title(title, fontdict=font_title)
 ax.set_xlabel(xlabel, fontdict=font_label)
 ax.set_ylabel(ylabel, fontdict=font_label)
-ax.tick_params(**tick_config['major'])
-ax.tick_params(**tick_config['minor'])
 #ax.minorticks_on()
 if show_name != True:
     ax.legend(loc=legend_loc, fontsize=legend_fontsize)
-ax.grid(True, linestyle="--", alpha=0.6)
+#plt.grid(True, linestyle="--", alpha=0.6)
+plt.margins(x=0.01)
 #plt.show()
 plt.savefig(outfile,dpi=300)
