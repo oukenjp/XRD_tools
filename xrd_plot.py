@@ -13,11 +13,12 @@ files = [
     # {"filename": "1.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
     # {"filename": "2.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
     # {"filename": "3.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
+    # {"filename": "3.xy", "col_x": 0, "col_y": 1, "label": None, "type": "line", "color": None, "marker": None, "linestyle": None,},
 ]
 
 # 图表参数
 title = "XRD patterns"
-outfile = "xrd2.svg"
+outfile = "xrd.svg"
 figsize = (8,6)
 labels = [r"$perovskite\;\rm{ABO_3}$", r"$perovskite\;\rm{A_2B_2O_6}$", r"$perovskite\;\rm{A_2B_2O_6}$"]    
 # 绘图设置
@@ -50,7 +51,11 @@ cmap = plt.get_cmap('tab10', 10)
 auto_colors = [cmap(i) for i in range(cmap.N)]
 auto_markers = ['o', 's', 'D', '^', 'v', '<', '>', 'p', '*', 'x', '+']
 
-def auto_scan_files(extensions=['.xy', '.csv', '.txt', '.dat', '']):
+def auto_scan_files(extensions=['.xy', 
+                                '.csv', 
+                                '.txt', 
+                                '.dat', 
+                                '']):
     """
     自动扫描当前文件夹中的数据文件，并生成默认配置。
     """
@@ -178,7 +183,7 @@ def read_data(filename, comment_char="#", n_lines=10):
 fig = plt.figure(figsize=figsize)
 #ax = plt.gca()
 ax = fig.add_axes([0.11, 0.11, 0.78, 0.78]) 
-yoffset_counter = 0
+offset_value = 0
 for idx, f in enumerate(files):
     try:
         data = read_data(f["filename"])
@@ -200,9 +205,8 @@ for idx, f in enumerate(files):
     # === y-offset 堆积（在归一化后） ===
     if use_yoffset == True:
         # 首次进入时计算偏移量，或者重新计算
+        y = y + offset_value
         offset_value = y.max() * offset_coef    
-        y = y + yoffset_counter * offset_value
-        yoffset_counter += 1
 
     color = f["color"] if f["color"] else auto_colors[idx % len(auto_colors)]
     linestyle = f["linestyle"] if f["linestyle"] else default_linestyle
